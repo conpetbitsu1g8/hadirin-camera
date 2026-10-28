@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#17643e">
+<title>Hadirin | Kamera Absensi</title>
+<style>
+:root{color-scheme:light;--green:#17643e;--dark:#10271b;--bg:#f2f6f3;--line:#dce7df;--muted:#6c7b71}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:#18251c;font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;min-height:100vh;display:grid;place-items:center;padding:20px}
+.app{width:min(760px,100%);background:white;border:1px solid var(--line);border-radius:22px;box-shadow:0 15px 45px #10271b12;overflow:hidden}.head{padding:22px 24px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:13px}.logo{width:44px;height:44px;background:var(--green);color:white;border-radius:14px;display:grid;place-items:center;font-size:22px}.head h1{margin:0;font-size:20px}.head p{margin:3px 0 0;color:var(--muted);font-size:12px}.body{padding:22px}.stage{position:relative;background:var(--dark);border-radius:16px;overflow:hidden;aspect-ratio:4/3;display:grid;place-items:center;color:white;min-height:250px}.stage video,.stage img{position:absolute;width:100%;height:100%;inset:0;object-fit:cover}.placeholder{text-align:center;padding:25px;max-width:340px}.placeholder .cam{font-size:42px;line-height:1.2}.placeholder h2{font-size:17px;margin:12px 0 5px}.placeholder p{font-size:12px;color:#d0ded4;margin:0}.tag{position:absolute;z-index:2;top:12px;left:12px;border-radius:8px;background:#10271bcc;border:1px solid #ffffff30;padding:6px 9px;font-size:10px;font-weight:800;letter-spacing:.3px}.controls{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}.btn{border:1px solid transparent;border-radius:11px;padding:12px 16px;font:700 13px system-ui;cursor:pointer;flex:1;min-width:125px}.primary{background:var(--green);color:white}.secondary{background:white;color:#24352a;border-color:var(--line)}.btn:disabled{opacity:.45;cursor:not-allowed}.notice{display:none;margin-top:15px;padding:12px 14px;border-radius:10px;font-size:12px}.notice.show{display:block}.error{background:#fff0ef;color:#a32c2c;border:1px solid #f0cccc}.info{background:#edf4ff;color:#315ca7;border:1px solid #d3e1fa}.success{background:#e9f7ee;color:#17643e;border:1px solid #cbe8d5}.foot{padding:0 22px 22px;color:var(--muted);font-size:11px}.foot strong{color:#34463a}@media(max-width:520px){body{padding:10px}.app{border-radius:16px}.head{padding:17px}.body{padding:14px}.stage{aspect-ratio:3/4;min-height:320px}.controls{gap:8px}.btn{min-width:calc(50% - 4px);padding:12px 10px}.foot{padding:0 15px 16px}}
+</style>
+</head>
+<body>
+<main class="app">
+  <header class="head"><div class="logo">▣</div><div><h1>Hadirin · Kamera Absensi</h1><p>Ambil foto, lalu kirim kembali ke formulir absensi.</p></div></header>
+  <section class="body">
+    <div class="stage"><div class="tag" id="tag">KAMERA NONAKTIF</div><div class="placeholder" id="placeholder"><div class="cam">▣</div><h2>Kamera siap digunakan</h2><p>Tekan Aktifkan Kamera, lalu izinkan akses kamera dari browser.</p></div><video id="video" autoplay playsinline muted style="display:none"></video><canvas id="canvas" hidden></canvas><img id="photo" alt="Foto yang diambil" style="display:none"></div>
+    <div class="controls"><button class="btn primary" id="start" type="button">Aktifkan Kamera</button><button class="btn secondary" id="switch" type="button" disabled>Ganti Kamera</button><button class="btn secondary" id="capture" type="button" disabled>Ambil Foto</button><button class="btn primary" id="use" type="button" disabled>Gunakan Foto</button></div>
+    <div class="notice" id="notice" role="status" aria-live="polite"></div>
+  </section>
+  <footer class="foot">Foto diproses di browser dan dikirim langsung ke tab Hadirin yang membuka halaman ini. <strong>Halaman ini tidak mengunggah foto ke GitHub.</strong></footer>
+</main>
+<script>
+'use strict';
+const params=new URLSearchParams(location.search);
+const targetOrigin=params.get('targetOrigin')||'';
+let stream=null, facingMode='user', photoDataUrl='';
+const $=id=>document.getElementById(id);
+function notice(message,type){const el=$('notice');el.textContent=message||'';el.className='notice'+(message?' show '+(type||'info'):'');}
+function stopStream(){if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}const v=$('video');v.srcObject=null;}
+async function startCamera(){
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){notice('Browser tidak mendukung akses kamera. Buka halaman ini melalui HTTPS pada browser terbaru.','error');return;}
+  stopStream();
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:facingMode},width:{ideal:1280},height:{ideal:720}},audio:false});
+    $('video').srcObject=stream;$('video').style.display='block';$('photo').style.display='none';$('placeholder').style.display='none';$('tag').textContent='KAMERA AKTIF';
+    $('switch').disabled=false;$('capture').disabled=false;$('use').disabled=true;photoDataUrl='';notice('Kamera aktif. Pastikan wajah terlihat jelas, lalu ambil foto.','success');await $('video').play();
+  }catch(err){let msg='Kamera tidak dapat diaktifkan. Tutup aplikasi lain yang memakai kamera, lalu coba lagi.';if(err&&err.name==='NotAllowedError')msg='Izin kamera ditolak. Klik ikon kamera/kunci di bilah alamat browser dan izinkan akses kamera untuk halaman ini.';else if(err&&err.name==='NotFoundError')msg='Kamera tidak ditemukan pada perangkat ini.';else if(err&&err.name==='NotReadableError')msg='Kamera sedang dipakai aplikasi lain. Tutup aplikasi tersebut lalu coba lagi.';notice(msg,'error');}
+}
+$('start').addEventListener('click',startCamera);
+$('switch').addEventListener('click',()=>{facingMode=facingMode==='user'?'environment':'user';startCamera();});
+$('capture').addEventListener('click',()=>{
+  const v=$('video');if(!stream||!v.videoWidth){notice('Tunggu hingga kamera siap, lalu ambil foto.','error');return;}
+  const c=$('canvas'),scale=Math.min(1,1280/v.videoWidth);c.width=Math.round(v.videoWidth*scale);c.height=Math.round(v.videoHeight*scale);c.getContext('2d',{alpha:false}).drawImage(v,0,0,c.width,c.height);
+  photoDataUrl=c.toDataURL('image/jpeg',0.76);$('photo').src=photoDataUrl;$('photo').style.display='block';v.style.display='none';$('tag').textContent='FOTO SIAP DIKIRIM';$('capture').disabled=true;$('use').disabled=false;notice('Foto berhasil diambil. Tekan Gunakan Foto untuk mengirimnya ke formulir Hadirin.','success');stopStream();
+});
+$('use').addEventListener('click',()=>{
+  if(!photoDataUrl){notice('Ambil foto terlebih dahulu.','error');return;}
+  if(!window.opener||window.opener.closed){notice('Tab formulir Hadirin tidak ditemukan. Tutup halaman ini, lalu buka kamera dari tombol di aplikasi Hadirin.','error');return;}
+  if(!targetOrigin||!/^https:\/\//.test(targetOrigin)){notice('Tujuan pengiriman tidak valid. Buka kamera melalui aplikasi Hadirin.','error');return;}
+  try{window.opener.postMessage({type:'HADIRIN_CAMERA_PHOTO',dataUrl:photoDataUrl},targetOrigin);notice('Foto dikirim ke aplikasi Hadirin. Halaman ini akan ditutup.','success');$('use').disabled=true;setTimeout(()=>window.close(),650);}catch(e){notice('Foto gagal dikirim. Pastikan formulir Hadirin masih terbuka, lalu coba lagi.','error');}
+});
+window.addEventListener('pagehide',stopStream);
+if(!window.opener){notice('Untuk mengirim foto otomatis, buka halaman ini melalui tombol Buka Kamera pada aplikasi Hadirin.','info');}
+</script>
+</body>
+</html>
